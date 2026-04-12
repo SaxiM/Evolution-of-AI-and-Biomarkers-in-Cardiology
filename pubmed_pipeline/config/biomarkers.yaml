@@ -1,0 +1,59 @@
+# Synonym dictionary for biomarkers
+# Key = canonical name, Value = list of aliases (all lowercase)
+
+CRP:
+  - crp
+  - c-reactive protein
+  - c reactive protein
+
+troponin:
+  - troponin
+  - troponin i
+  - troponin t
+  - ctni
+  - ctnt
+
+cholesterol:
+  - cholesterol
+  - ldl
+  - hdl
+  - total cholesterol
+  - ldl-c
+  - hdl-c
+
+HbA1c:
+  - hba1c
+  - hb a1c
+  - glycated hemoglobin
+  - hemoglobin a1c
+
+IL-6:
+  - il-6
+  - il6
+  - interleukin-6
+  - interleukin 6
+
+glucose:
+  - glucose
+  - blood glucose
+  - fasting glucose
+  - glycemia
+
+BNP:
+  - bnp
+  - brain natriuretic peptide
+  - nt-probnp
+  - probnp
+
+ferritin:
+  - ferritin
+  - serum ferritin
+
+albumin:
+  - albumin
+  - serum albumin
+
+creatinine:
+  - creatinine
+  - serum creatinine
+  - plasma creatinine

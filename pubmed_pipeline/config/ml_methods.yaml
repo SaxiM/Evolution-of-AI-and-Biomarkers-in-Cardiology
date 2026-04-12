@@ -1,0 +1,71 @@
+# Synonym dictionary for ML methods
+# Key = canonical name, Value = list of aliases (all lowercase)
+
+logistic_regression:
+  - logistic regression
+  - logit model
+  - logit regression
+
+random_forest:
+  - random forest
+  - random forests
+  - rf classifier
+
+SVM:
+  - svm
+  - support vector machine
+  - support vector machines
+  - support vector classifier
+
+neural_network:
+  - neural network
+  - neural networks
+  - ann
+  - artificial neural network
+  - multilayer perceptron
+  - mlp
+
+deep_learning:
+  - deep learning
+  - deep neural
+  - cnn
+  - convolutional neural network
+  - rnn
+  - lstm
+  - gru
+  - autoencoder
+
+transformer:
+  - transformer
+  - bert
+  - gpt
+  - large language model
+  - llm
+  - attention mechanism
+  - fine-tuning
+  - pretrained model
+
+XGBoost:
+  - xgboost
+  - gradient boosting
+  - gbm
+  - lightgbm
+  - catboost
+  - gradient boosted
+
+naive_bayes:
+  - naive bayes
+  - naïve bayes
+  - bayesian classifier
+
+decision_tree:
+  - decision tree
+  - decision trees
+  - cart
+
+clustering:
+  - k-means
+  - kmeans
+  - hierarchical clustering
+  - dbscan
+  - unsupervised clustering
