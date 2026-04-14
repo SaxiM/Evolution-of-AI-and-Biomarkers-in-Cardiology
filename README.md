@@ -12,6 +12,10 @@ To answer this, we built a program that:
 3. Counts how often traditional biomarker words appear (like "cholesterol", "glucose", "CRP")
 4. Shows the results as easy-to-read charts
 
+**Current focus: Cardiovascular disease research**
+
+The pipeline is configured to focus specifically on cardiovascular disease literature. This targeted approach ensures better comparability of biomarkers and ML methods within a single clinical domain, enabling more meaningful trend analysis.
+
 ---
 
 ## Step-by-step explanation
@@ -32,6 +36,18 @@ For each year between 2000 and 2025, we download up to 500 papers. The result is
 ### Step 2: Extract — Count what appears in each paper
 
 For each paper, we search the abstract text for specific keywords. We look for two types of things:
+
+#### Temporal Constraints
+
+To avoid false positives, entity extraction applies temporal constraints — methods cannot be detected before their year of creation:
+
+| Method | Earliest detectable year |
+|--------|-------------------------|
+| XGBoost | 2014 |
+| Transformer | 2017 |
+| Deep Learning | 2006 |
+| Random Forest | 2001 |
+| SVM | 1995 |
 
 #### Biomarkers (traditional lab tests)
 These are substances in your body that doctors measure to check your health:

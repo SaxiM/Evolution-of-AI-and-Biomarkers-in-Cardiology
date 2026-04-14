@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from pathlib import Path
@@ -10,6 +11,37 @@ from typing import TextIO
 import yaml
 
 logger = logging.getLogger(__name__)
+
+ENTITY_YEAR_CONSTRAINTS = {
+    "XGBoost":             2014,
+    "transformer":         2017,
+    "deep_learning":       2006,
+    "random_forest":       2001,
+    "SVM":                 1995,
+    "naive_bayes":         None,
+    "clustering":          None,
+    "logistic_regression": None,
+    "neural_network":      None,
+    "decision_tree":       None,
+}
+
+
+def apply_temporal_constraints(entities_found, year, constraints):
+    """
+    Usuwa encje, które nie mogły istnieć w danym roku.
+    Loguje ostrzeżenie przy każdym usunięciu.
+    """
+    filtered = {}
+    for entity, count in entities_found.items():
+        min_year = constraints.get(entity)
+        if min_year is not None and year < min_year:
+            logging.warning(
+                f"Usunięto '{entity}' dla roku {year} "
+                f"(metoda niedostępna przed {min_year})"
+            )
+        else:
+            filtered[entity] = count
+    return filtered
 
 
 def load_entity_dict(yaml_path: str) -> dict[str, list[str]]:
@@ -72,29 +104,62 @@ def extract_entities(abstract: str, entity_dict: dict[str, list[str]]) -> dict[s
         entity_dict: Dictionary mapping canonical names to alias lists.
 
     Returns:
-        Dictionary mapping canonical name -> count of mentions.
+        Dictionary mapping canonical name -> 1 if found (binary counting).
     """
-    normalized = normalize_text(abstract)
-    results: dict[str, int] = {}
+    text = normalize_text(abstract)
+    found = {}
 
     for canonical, aliases in entity_dict.items():
-        # Sort by length descending so longer (more specific) aliases match first
-        sorted_aliases = sorted(aliases, key=len, reverse=True)
-        found = False
+        for alias in sorted(aliases, key=len, reverse=True):
+            pattern = r'\b' + re.escape(alias) + r'\b'
+            if re.search(pattern, text):
+                found[canonical] = 1
+                break
 
-        for alias in sorted_aliases:
-            # Escape regex special characters in the alias
-            escaped = re.escape(alias)
-            pattern = r"\b" + escaped + r"\b"
-            if re.search(pattern, normalized):
-                results[canonical] = results.get(canonical, 0) + 1
-                found = True
-                break  # Avoid double-counting via different aliases
+    return found
 
-        if not found:
-            results[canonical] = 0
 
-    return results
+def generate_integrity_report(
+    stats: dict,
+    output_path: str,
+) -> None:
+    """Generate and save data integrity report.
+
+    Args:
+        stats: Dictionary with processing statistics.
+        output_path: Path for the report file.
+    """
+    lines = [
+        "=== RAPORT INTEGRALNOŚCI DANYCH ===",
+        f"Łączna liczba przetworzonych abstraktów: {stats['total_processed']}",
+        f"Pominięte (brak tekstu abstraktu): {stats['skipped_no_abstract']}",
+        "",
+        "Encje usunięte przez ograniczenia czasowe:",
+    ]
+
+    temporal_removals = stats.get("temporal_removals", {})
+    for entity, count in sorted(temporal_removals.items()):
+        lines.append(f"  - {entity}: {count} przypadków")
+
+    lines.append("")
+    lines.append("Liczba abstraktów per rok:")
+    for year, count in sorted(stats.get("abstracts_per_year", {}).items()):
+        lines.append(f"  {year}: {count}")
+
+    low_reliability_years = {
+        year: count
+        for year, count in stats.get("abstracts_per_year", {}).items()
+        if count < 100
+    }
+    if low_reliability_years:
+        lines.append("")
+        lines.append("OSTRZEŻENIE — lata z < 100 abstraktami (niska wiarygodność):")
+        for year, count in sorted(low_reliability_years.items()):
+            lines.append(f"  {year}: {count}  <- rozważ wykluczenie z analizy trendów")
+
+    report_content = "\n".join(lines) + "\n"
+    Path(output_path).write_text(report_content, encoding="utf-8")
+    logger.info("Zapisano raport integralności: %s", output_path)
 
 
 def process_records(
@@ -122,7 +187,13 @@ def process_records(
     output_p = Path(output_path)
     output_p.parent.mkdir(parents=True, exist_ok=True)
 
-    processed = 0
+    # Statistics for integrity report
+    stats = {
+        "total_processed": 0,
+        "skipped_no_abstract": 0,
+        "temporal_removals": {},
+        "abstracts_per_year": {},
+    }
 
     with open(input_p, "r", encoding="utf-8") as infile, \
          open(output_p, "w", encoding="utf-8") as outfile:
@@ -132,10 +203,13 @@ def process_records(
             if not line:
                 continue
 
-            import json
             record = json.loads(line)
-
+            year = record.get("year")
             abstract = record.get("abstract", "")
+
+            if year is not None:
+                stats["abstracts_per_year"][year] = stats["abstracts_per_year"].get(year, 0) + 1
+
             if not abstract:
                 record["biomarkers_found"] = {}
                 record["ml_methods_found"] = {}
@@ -143,10 +217,25 @@ def process_records(
                 record["has_ml"] = False
                 record["category"] = "neither"
                 outfile.write(json.dumps(record, ensure_ascii=False) + "\n")
+                stats["skipped_no_abstract"] += 1
                 continue
 
             biomarkers = extract_entities(abstract, biomarker_dict)
             ml_methods = extract_entities(abstract, ml_dict)
+
+            # Apply temporal constraints to ML methods
+            if year is not None:
+                ml_methods_filtered = apply_temporal_constraints(
+                    ml_methods, year, ENTITY_YEAR_CONSTRAINTS
+                )
+                # Track removals for integrity report
+                for entity in ml_methods:
+                    if entity in ml_methods_filtered:
+                        pass  # kept
+                    else:
+                        key = f"{entity} przed {ENTITY_YEAR_CONSTRAINTS.get(entity)}"
+                        stats["temporal_removals"][key] = stats["temporal_removals"].get(key, 0) + 1
+                ml_methods = ml_methods_filtered
 
             has_biomarker = any(v > 0 for v in biomarkers.values())
             has_ml = any(v > 0 for v in ml_methods.values())
@@ -167,6 +256,10 @@ def process_records(
             record["category"] = category
 
             outfile.write(json.dumps(record, ensure_ascii=False) + "\n")
-            processed += 1
+            stats["total_processed"] += 1
 
-    logger.info("Processed %d records -> %s", processed, output_p)
+    logger.info("Processed %d records -> %s", stats["total_processed"], output_p)
+
+    # Generate integrity report
+    report_dir = Path(output_p).parent
+    generate_integrity_report(stats, str(report_dir / "integrity_report.txt"))

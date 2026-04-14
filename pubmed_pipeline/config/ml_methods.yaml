@@ -1,23 +1,23 @@
 # Synonym dictionary for ML methods
 # Key = canonical name, Value = list of aliases (all lowercase)
 
-logistic_regression:
+logistic_regression:      # Origins: 1970s (generalized linear models)
   - logistic regression
   - logit model
   - logit regression
 
-random_forest:
+random_forest:            # Created by Leo Breiman in 2001
   - random forest
   - random forests
   - rf classifier
 
-SVM:
+SVM:                      # Created by Vladimir Vapnik in 1963/1995
   - svm
   - support vector machine
   - support vector machines
   - support vector classifier
 
-neural_network:
+neural_network:           # Origins: 1943 (McCulloch-Pitts), 1950s-80s development
   - neural network
   - neural networks
   - ann
@@ -25,7 +25,7 @@ neural_network:
   - multilayer perceptron
   - mlp
 
-deep_learning:
+deep_learning:             # Effective training of deep networks: 2006 (Hinton et al.)
   - deep learning
   - deep neural
   - cnn
@@ -35,7 +35,7 @@ deep_learning:
   - gru
   - autoencoder
 
-transformer:
+transformer:              # "Attention Is All You Need": 2017 (Vaswani et al.)
   - transformer
   - bert
   - gpt
@@ -45,7 +45,7 @@ transformer:
   - fine-tuning
   - pretrained model
 
-XGBoost:
+XGBoost:                  # Created by Tianqi Chen, 2014
   - xgboost
   - gradient boosting
   - gbm
@@ -53,17 +53,17 @@ XGBoost:
   - catboost
   - gradient boosted
 
-naive_bayes:
+naive_bayes:              # Origins: 1950s-1960s
   - naive bayes
   - naïve bayes
   - bayesian classifier
 
-decision_tree:
+decision_tree:            # Origins: 1960s (CHAID), 1980s (CART)
   - decision tree
   - decision trees
   - cart
 
-clustering:
+clustering:                # k-means: 1957, hierarchical clustering: 1967
   - k-means
   - kmeans
   - hierarchical clustering

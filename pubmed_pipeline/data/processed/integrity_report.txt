@@ -1,0 +1,33 @@
+=== RAPORT INTEGRALNOŚCI DANYCH ===
+Łączna liczba przetworzonych abstraktów: 12092
+Pominięte (brak tekstu abstraktu): 0
+
+Encje usunięte przez ograniczenia czasowe:
+  - transformer przed 2017: 3 przypadków
+
+Liczba abstraktów per rok:
+  2000: 468
+  2001: 473
+  2002: 471
+  2003: 476
+  2004: 473
+  2005: 481
+  2006: 478
+  2007: 478
+  2008: 476
+  2009: 466
+  2010: 484
+  2011: 491
+  2012: 485
+  2013: 484
+  2014: 481
+  2015: 492
+  2016: 492
+  2017: 490
+  2018: 491
+  2019: 486
+  2020: 495
+  2021: 495
+  2022: 494
+  2023: 492
+  2024: 500

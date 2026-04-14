@@ -25,8 +25,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 DEFAULT_QUERY = (
-    "biomarkers OR machine learning OR deep learning OR artificial intelligence "
-    "AND (clinical OR diagnosis OR prognosis)"
+    '("cardiovascular disease" OR "heart disease" OR "heart failure" '
+    'OR "coronary artery disease" OR "myocardial infarction" OR stroke) '
+    'AND (predictor* OR "risk factor" OR "risk assessment" OR prognosticator) '
+    'AND (mortality OR survival OR death OR prognosis OR "disease progression" '
+    'OR "adverse outcome" OR "clinical endpoint")'
 )
 DEFAULT_START = 2000
 DEFAULT_END = 2024
@@ -64,10 +67,13 @@ def cmd_aggregate(args: argparse.Namespace) -> None:
 def cmd_visualize(args: argparse.Namespace) -> None:
     """Run the visualize subcommand."""
     import pandas as pd
+    from pipeline.visualize import plot_single_biomarker_vs_ml
 
     csv_path = Path(args.input).with_suffix(".csv")
     df = pd.read_csv(csv_path)
     generate_all_plots(df, output_dir=args.output_dir)
+    if args.biomarker:
+        plot_single_biomarker_vs_ml(df, biomarker_name=args.biomarker, output_dir=args.output_dir)
 
 
 def cmd_all(args: argparse.Namespace) -> None:
@@ -99,7 +105,9 @@ def cmd_all(args: argparse.Namespace) -> None:
     save_aggregated(df, agg_path)
 
     logger.info("=== STEP 4: Visualize ===")
+    from pipeline.visualize import plot_single_biomarker_vs_ml
     generate_all_plots(df, output_dir="data/figures/")
+    plot_single_biomarker_vs_ml(df, biomarker_name="cholesterol", output_dir="data/figures/")
 
     logger.info("=== Pipeline complete ===")
 
@@ -140,6 +148,7 @@ def main() -> None:
     p_vis = sub.add_parser("visualize", help="Generate trend plots")
     p_vis.add_argument("--input", default="data/processed/aggregated.csv")
     p_vis.add_argument("--output-dir", default="data/figures/")
+    p_vis.add_argument("--biomarker", default="cholesterol")
     p_vis.set_defaults(func=cmd_visualize)
 
     # all
