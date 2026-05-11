@@ -1,66 +1,59 @@
 === RAPORT INTEGRALNOŚCI DANYCH ===
-Łączna liczba przetworzonych abstraktów: 236
+Łączna liczba przetworzonych abstraktów: 44
 Pominięte (brak tekstu abstraktu): 0
 
 Encje usunięte przez ograniczenia czasowe:
-  - XGBoost przed 2014: 5 przypadków
-  - catboost przed 2017: 3 przypadków
-  - deep_learning przed 2006: 1 przypadków
-  - lightgbm przed 2016: 3 przypadków
-  - transformer przed 2017: 3 przypadków
+  - XGBoost przed 2014: 2 przypadków
+  - catboost przed 2017: 1 przypadków
+  - lightgbm przed 2016: 1 przypadków
+  - transformer przed 2017: 1 przypadków
 
 Liczba abstraktów per rok:
-  2000: 4
-  2001: 8
-  2002: 10
-  2003: 10
-  2004: 10
-  2005: 9
-  2006: 11
-  2007: 7
-  2008: 6
-  2009: 14
-  2010: 9
-  2011: 8
-  2012: 5
-  2013: 13
-  2014: 14
-  2015: 3
-  2016: 8
-  2017: 8
-  2018: 11
-  2019: 11
-  2020: 7
-  2021: 16
-  2022: 8
-  2023: 14
-  2024: 6
-  2025: 6
+  2002: 2
+  2003: 2
+  2004: 2
+  2005: 2
+  2006: 2
+  2009: 5
+  2010: 1
+  2011: 1
+  2012: 2
+  2013: 2
+  2014: 3
+  2015: 2
+  2016: 2
+  2017: 1
+  2018: 1
+  2019: 2
+  2020: 2
+  2021: 3
+  2022: 2
+  2023: 2
+  2024: 1
+  2025: 1
+  2026: 1
 
 OSTRZEŻENIE — lata z < 100 abstraktami (niska wiarygodność):
-  2000: 4  <- rozważ wykluczenie z analizy trendów
-  2001: 8  <- rozważ wykluczenie z analizy trendów
-  2002: 10  <- rozważ wykluczenie z analizy trendów
-  2003: 10  <- rozważ wykluczenie z analizy trendów
-  2004: 10  <- rozważ wykluczenie z analizy trendów
-  2005: 9  <- rozważ wykluczenie z analizy trendów
-  2006: 11  <- rozważ wykluczenie z analizy trendów
-  2007: 7  <- rozważ wykluczenie z analizy trendów
-  2008: 6  <- rozważ wykluczenie z analizy trendów
-  2009: 14  <- rozważ wykluczenie z analizy trendów
-  2010: 9  <- rozważ wykluczenie z analizy trendów
-  2011: 8  <- rozważ wykluczenie z analizy trendów
-  2012: 5  <- rozważ wykluczenie z analizy trendów
-  2013: 13  <- rozważ wykluczenie z analizy trendów
-  2014: 14  <- rozważ wykluczenie z analizy trendów
-  2015: 3  <- rozważ wykluczenie z analizy trendów
-  2016: 8  <- rozważ wykluczenie z analizy trendów
-  2017: 8  <- rozważ wykluczenie z analizy trendów
-  2018: 11  <- rozważ wykluczenie z analizy trendów
-  2019: 11  <- rozważ wykluczenie z analizy trendów
-  2020: 7  <- rozważ wykluczenie z analizy trendów
-  2021: 16  <- rozważ wykluczenie z analizy trendów
-  2022: 8  <- rozważ wykluczenie z analizy trendów
-  2023: 14  <- rozważ wykluczenie z analizy trendów
-  2024: 6  <- rozważ wykluczenie z analizy trendów
-  2025: 6  <- rozważ wykluczenie z analizy trendów
+  2002: 2  <- rozważ wykluczenie z analizy trendów
+  2003: 2  <- rozważ wykluczenie z analizy trendów
+  2004: 2  <- rozważ wykluczenie z analizy trendów
+  2005: 2  <- rozważ wykluczenie z analizy trendów
+  2006: 2  <- rozważ wykluczenie z analizy trendów
+  2009: 5  <- rozważ wykluczenie z analizy trendów
+  2010: 1  <- rozważ wykluczenie z analizy trendów
+  2011: 1  <- rozważ wykluczenie z analizy trendów
+  2012: 2  <- rozważ wykluczenie z analizy trendów
+  2013: 2  <- rozważ wykluczenie z analizy trendów
+  2014: 3  <- rozważ wykluczenie z analizy trendów
+  2015: 2  <- rozważ wykluczenie z analizy trendów
+  2016: 2  <- rozważ wykluczenie z analizy trendów
+  2017: 1  <- rozważ wykluczenie z analizy trendów
+  2018: 1  <- rozważ wykluczenie z analizy trendów
+  2019: 2  <- rozważ wykluczenie z analizy trendów
+  2020: 2  <- rozważ wykluczenie z analizy trendów
+  2021: 3  <- rozważ wykluczenie z analizy trendów
+  2022: 2  <- rozważ wykluczenie z analizy trendów
+  2023: 2  <- rozważ wykluczenie z analizy trendów
+  2024: 1  <- rozważ wykluczenie z analizy trendów
+  2025: 1  <- rozważ wykluczenie z analizy trendów
+  2026: 1  <- rozważ wykluczenie z analizy trendów
