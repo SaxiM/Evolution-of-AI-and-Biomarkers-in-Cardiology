@@ -16,6 +16,7 @@ from pipeline import (
     process_records,
     save_aggregated,
 )
+from pipeline.validation_sample import export_validation_sample
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,6 +55,11 @@ def cmd_extract(args: argparse.Namespace) -> None:
         biomarker_yaml=args.biomarker_yaml,
         ml_yaml=args.ml_yaml,
         output_path=args.output,
+        ner_backend=args.ner_backend,
+        ollama_model=args.ollama_model,
+        ollama_base_url=args.ollama_url,
+        ollama_timeout=args.ollama_timeout,
+        ollama_workers=args.ollama_workers,
     )
 
 
@@ -76,6 +82,17 @@ def cmd_visualize(args: argparse.Namespace) -> None:
         plot_single_biomarker_vs_ml(df, biomarker_name=args.biomarker, output_dir=args.output_dir)
 
 
+def cmd_validation_sample(args: argparse.Namespace) -> None:
+    """Eksport próbki JSONL do ręcznej adnotacji (precision/recall)."""
+    export_validation_sample(
+        input_path=args.input,
+        output_path=args.output,
+        n=args.n,
+        seed=args.seed,
+        stratify=not args.no_stratify,
+    )
+
+
 def cmd_all(args: argparse.Namespace) -> None:
     """Run the full pipeline end-to-end."""
     logger.info("=== STEP 1: Fetch ===")
@@ -96,6 +113,11 @@ def cmd_all(args: argparse.Namespace) -> None:
         biomarker_yaml="config/biomarkers.yaml",
         ml_yaml="config/ml_methods.yaml",
         output_path=enriched_path,
+        ner_backend=args.ner_backend,
+        ollama_model=args.ollama_model,
+        ollama_base_url=args.ollama_url,
+        ollama_timeout=args.ollama_timeout,
+        ollama_workers=args.ollama_workers,
     )
 
     logger.info("=== STEP 3: Aggregate ===")
@@ -136,6 +158,34 @@ def main() -> None:
     )
     p_extract.add_argument("--ml-yaml", default="config/ml_methods.yaml")
     p_extract.add_argument("--output", default="data/processed/enriched.jsonl")
+    p_extract.add_argument(
+        "--ner-backend",
+        choices=["lexicon", "ollama", "hybrid"],
+        default="hybrid",
+        help="hybrid = Ollama NER + leksykon RegEx (domyślnie); lexicon = tylko RegEx; ollama = tylko Ollama (wymaga serwera)",
+    )
+    p_extract.add_argument(
+        "--ollama-model",
+        default="llama3.2",
+        help="Nazwa modelu w Ollama (np. llama3.2, mistral)",
+    )
+    p_extract.add_argument(
+        "--ollama-url",
+        default="http://127.0.0.1:11434",
+        help="Bazowy URL API Ollama",
+    )
+    p_extract.add_argument(
+        "--ollama-timeout",
+        type=int,
+        default=180,
+        help="Timeout HTTP na jeden abstrakt (sekundy)",
+    )
+    p_extract.add_argument(
+        "--ollama-workers",
+        type=int,
+        default=1,
+        help="Równoległe żądania Ollama (2–8); tylko przy --ner-backend ollama/hybrid",
+    )
     p_extract.set_defaults(func=cmd_extract)
 
     # aggregate
@@ -158,7 +208,31 @@ def main() -> None:
     p_all.add_argument("--end-year", type=int, default=DEFAULT_END)
     p_all.add_argument("--max-per-year", type=int, default=500)
     p_all.add_argument("--email", default="researcher@example.com")
+    p_all.add_argument(
+        "--ner-backend",
+        choices=["lexicon", "ollama", "hybrid"],
+        default="hybrid",
+    )
+    p_all.add_argument("--ollama-model", default="llama3.2")
+    p_all.add_argument("--ollama-url", default="http://127.0.0.1:11434")
+    p_all.add_argument("--ollama-timeout", type=int, default=180)
+    p_all.add_argument("--ollama-workers", type=int, default=1)
     p_all.set_defaults(func=cmd_all)
+
+    p_val = sub.add_parser(
+        "validation-sample",
+        help="Eksport n rekordów (JSONL) do ręcznej walidacji pred_biomarkers / pred_ml_methods",
+    )
+    p_val.add_argument("--input", default="data/processed/enriched.jsonl")
+    p_val.add_argument("--output", default="data/validation/sample_for_annotation.jsonl")
+    p_val.add_argument("--n", type=int, default=20)
+    p_val.add_argument("--seed", type=int, default=42)
+    p_val.add_argument(
+        "--no-stratify",
+        action="store_true",
+        help="Losuj bez dążenia do równowagi kategorii",
+    )
+    p_val.set_defaults(func=cmd_validation_sample)
 
     args = parser.parse_args()
     args.func(args)

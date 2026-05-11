@@ -16,6 +16,67 @@ logger = logging.getLogger(__name__)
 Entrez.email = "researcher@example.com"
 
 
+def _parse_year_from_pubmed_date(pub_date) -> int | None:
+    """Wyciąga rok z pola PubDate (str albo dict z Biopython)."""
+    if pub_date is None:
+        return None
+    if isinstance(pub_date, str):
+        s = pub_date.strip()
+        if len(s) >= 4 and s[:4].isdigit():
+            try:
+                return int(s[:4])
+            except ValueError:
+                return None
+        return None
+    if isinstance(pub_date, dict):
+        y = pub_date.get("Year")
+        if y is None:
+            return None
+        try:
+            return int(str(y).strip()[:4])
+        except ValueError:
+            return None
+    return None
+
+
+def extract_publication_year_from_article(article: dict, search_year: int) -> int:
+    """Preferuje rok z metadanych MEDLINE; zapobiega rozbieżności z rokiem zapytania [dp]."""
+    medline = article.get("MedlineCitation", {})
+    art = medline.get("Article", {})
+
+    candidates: list[int | None] = []
+
+    journal = art.get("Journal", {})
+    ji = journal.get("JournalIssue", {})
+    candidates.append(_parse_year_from_pubmed_date(ji.get("PubDate")))
+
+    candidates.append(_parse_year_from_pubmed_date(art.get("PubDate")))
+
+    article_dates = art.get("ArticleDate", [])
+    if isinstance(article_dates, dict):
+        article_dates = [article_dates]
+    if isinstance(article_dates, list):
+        for ad in article_dates:
+            if isinstance(ad, dict):
+                candidates.append(_parse_year_from_pubmed_date(ad))
+
+    medline_date = medline.get("DateCompleted", {})
+    if isinstance(medline_date, dict):
+        candidates.append(_parse_year_from_pubmed_date(medline_date))
+
+    for c in candidates:
+        if c is not None and 1900 <= c <= 2100:
+            if c != search_year:
+                logger.debug(
+                    "Rok z metadanych (%s) różni się od roku zapytania (%s); używam metadanych",
+                    c,
+                    search_year,
+                )
+            return c
+
+    return search_year
+
+
 def fetch_pubmed_abstracts(
     query: str,
     start_year: int,
@@ -107,7 +168,7 @@ def fetch_pubmed_abstracts(
                                 continue
 
                             pmid = str(medline.get("PMID", ""))
-                            pub_year = year  # Use the search year
+                            pub_year = extract_publication_year_from_article(article, year)
 
                             record_out = {
                                 "pmid": pmid,

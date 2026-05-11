@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
+from .entity_lists import ALL_BIOMARKER_COLUMNS, ALL_ML_METHOD_COLUMNS
+
 logger = logging.getLogger(__name__)
 
 sns.set_style("whitegrid")
@@ -41,15 +43,12 @@ def generate_all_plots(df: pd.DataFrame, output_dir: str = "data/figures/") -> N
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    all_ml = [
-        "logistic_regression", "random_forest", "SVM", "neural_network",
-        "deep_learning", "transformer", "XGBoost", "naive_bayes",
-        "decision_tree", "clustering",
-    ]
-    all_biomarkers = [
-        "CRP", "troponin", "cholesterol", "HbA1c", "IL-6",
-        "glucose", "BNP", "ferritin", "albumin", "creatinine",
-    ]
+    all_ml = [c for c in ALL_ML_METHOD_COLUMNS if c in df.columns]
+    all_biomarkers = [c for c in ALL_BIOMARKER_COLUMNS if c in df.columns]
+    if not all_ml:
+        all_ml = list(ALL_ML_METHOD_COLUMNS)
+    if not all_biomarkers:
+        all_biomarkers = list(ALL_BIOMARKER_COLUMNS)
 
     # ------------------------------------------------------------------
     # Plot 1: AI vs Biomarkers smoothed rate comparison
@@ -169,6 +168,137 @@ def generate_all_plots(df: pd.DataFrame, output_dir: str = "data/figures/") -> N
     logger.info("Saved 05_biomarker_breakdown.png")
 
     logger.info("All plots saved to %s", output_path)
+    generate_interactive_plots(df, str(output_path))
+
+
+def generate_interactive_plots(df: pd.DataFrame, output_dir: str) -> None:
+    """Eksport interaktywnych wykresów HTML (Plotly): zoom, hover, legenda."""
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        logger.warning("plotly nie jest zainstalowane — pomijam wykresy HTML.")
+        return
+
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    all_ml = [c for c in ALL_ML_METHOD_COLUMNS if c in df.columns]
+    all_bio = [c for c in ALL_BIOMARKER_COLUMNS if c in df.columns]
+    if not all_ml:
+        all_ml = list(ALL_ML_METHOD_COLUMNS)
+    if not all_bio:
+        all_bio = list(ALL_BIOMARKER_COLUMNS)
+
+    fig1 = go.Figure()
+    fig1.add_trace(
+        go.Scatter(
+            x=df["year"],
+            y=df["biomarker_rate_smooth"],
+            name="Biomarker rate (smoothed)",
+            mode="lines",
+            line=dict(color="#2196F3", width=2),
+        )
+    )
+    fig1.add_trace(
+        go.Scatter(
+            x=df["year"],
+            y=df["ml_rate_smooth"],
+            name="ML / methods rate (smoothed)",
+            mode="lines",
+            line=dict(color="#FF5722", width=2),
+        )
+    )
+    fig1.update_layout(
+        title="AI/ML vs biomarker mentions (per 1000 abstracts, smoothed)",
+        xaxis_title="Year",
+        yaxis_title="Per 1000 abstracts",
+        template="plotly_white",
+        hovermode="x unified",
+    )
+    fig1.write_html(out / "interactive_01_ai_vs_biomarkers.html", include_plotlyjs="cdn")
+
+    fig2 = go.Figure()
+    fig2.add_trace(
+        go.Scatter(
+            x=df["year"],
+            y=df["ai_penetration_index"],
+            mode="lines",
+            line=dict(color="#9C27B0", width=2),
+            name="AI penetration index",
+        )
+    )
+    fig2.add_hline(y=1.0, line_dash="dash", line_color="gray", annotation_text="Parity")
+    fig2.update_layout(
+        title="AI penetration index (ML rate / biomarker rate)",
+        xaxis_title="Year",
+        yaxis_title="Index",
+        template="plotly_white",
+    )
+    fig2.write_html(out / "interactive_02_ai_penetration_index.html", include_plotlyjs="cdn")
+
+    growth_df = df.dropna(subset=["ml_growth_yoy"]).copy()
+    fig3 = go.Figure(
+        data=[
+            go.Bar(
+                x=growth_df["year"],
+                y=growth_df["ml_growth_yoy"],
+                marker_color=["#4CAF50" if v >= 0 else "#F44336" for v in growth_df["ml_growth_yoy"]],
+            )
+        ]
+    )
+    fig3.update_layout(
+        title="Year-over-year growth of ML / method mention rate (%)",
+        xaxis_title="Year",
+        yaxis_title="YoY %",
+        template="plotly_white",
+    )
+    fig3.write_html(out / "interactive_03_ml_yoy_growth.html", include_plotlyjs="cdn")
+
+    ml_counts = df[all_ml].astype(float).fillna(0)
+    fig4 = go.Figure()
+    for col in all_ml:
+        fig4.add_trace(
+            go.Scatter(
+                x=df["year"],
+                y=ml_counts[col],
+                name=col,
+                stackgroup="one",
+                mode="lines",
+                line=dict(width=0.5),
+            )
+        )
+    fig4.update_layout(
+        title="ML & statistical methods — stacked mentions over time",
+        xaxis_title="Year",
+        yaxis_title="Count",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig4.write_html(out / "interactive_04_ml_method_breakdown.html", include_plotlyjs="cdn")
+
+    bio_counts = df[all_bio].astype(float).fillna(0)
+    fig5 = go.Figure()
+    for col in all_bio:
+        fig5.add_trace(
+            go.Scatter(
+                x=df["year"],
+                y=bio_counts[col],
+                name=col,
+                stackgroup="one",
+                mode="lines",
+                line=dict(width=0.5),
+            )
+        )
+    fig5.update_layout(
+        title="Biomarker mentions — stacked counts over time",
+        xaxis_title="Year",
+        yaxis_title="Count",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig5.write_html(out / "interactive_05_biomarker_breakdown.html", include_plotlyjs="cdn")
+
+    logger.info("Zapisano interaktywne wykresy Plotly w %s", out)
 
 
 def plot_single_biomarker_vs_ml(df: pd.DataFrame, biomarker_name: str = "cholesterol", output_dir: str = "data/figures/") -> None:

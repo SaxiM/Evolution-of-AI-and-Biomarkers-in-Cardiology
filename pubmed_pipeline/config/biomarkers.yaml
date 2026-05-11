@@ -5,6 +5,10 @@ CRP:
   - crp
   - c-reactive protein
   - c reactive protein
+  - hs-crp
+  - hs crp
+  - high-sensitivity c-reactive protein
+  - high sensitivity c-reactive protein
 
 troponin:
   - troponin
@@ -20,6 +24,16 @@ cholesterol:
   - total cholesterol
   - ldl-c
   - hdl-c
+
+# cholesterol non-HDL — osobna encja (narracja ewolucji markerów lipoproteinowych)
+non_hdl:
+  - non-hdl
+  - non hdl
+  - nonhdl
+  - non-hdl cholesterol
+  - non hdl cholesterol
+  - non-hdl-c
+  - non hdl-c
 
 HbA1c:
   - hba1c

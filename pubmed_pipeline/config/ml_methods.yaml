@@ -1,10 +1,49 @@
-# Synonym dictionary for ML methods
+# Synonym dictionary for ML / statistical prediction methods
 # Key = canonical name, Value = list of aliases (all lowercase)
 
-logistic_regression:      # Origins: 1970s (generalized linear models)
+# Klasyczne modele statystyczne (punkt odniesienia wobec ML)
+linear_regression:
+  - linear regression
+  - multivariable linear regression
+  - multivariate linear regression
+  - ordinary least squares
+  - ols regression
+  - least squares regression
+
+cox_model:
+  - cox regression
+  - cox proportional hazards
+  - proportional hazards model
+  - proportional hazards regression
+  - cox model
+  - cox ph model
+  - hazards model
+
+logistic_regression:      # Origins: 1970s (GLM / epidemiology); bardzo częste sformułowania kliniczne
+  - multivariable logistic regression
+  - multivariate logistic regression
+  - multiple logistic regression
+  - binary logistic regression
+  - conditional logistic regression
+  - multinomial logistic regression
+  - ordinal logistic regression
+  - penalized logistic regression
+  - stepwise logistic regression
   - logistic regression
+  - logistic-regression
   - logit model
   - logit regression
+  - logit analysis
+  - multivariable logistic model
+  - multivariate logistic model
+  - logistic regression model
+  - logistic model
+  - logistic models
+  - multivariable logistic analysis
+  - multivariate logistic analysis
+  - logistic analysis
+  - adjusted logistic
+  - firth logistic regression
 
 random_forest:            # Created by Leo Breiman in 2001
   - random forest
@@ -45,13 +84,26 @@ transformer:              # "Attention Is All You Need": 2017 (Vaswani et al.)
   - fine-tuning
   - pretrained model
 
-XGBoost:                  # Created by Tianqi Chen, 2014
+# XGBoost: tylko jawne wzmianki biblioteki — unika fałszywych pozytywów z ogólnego „boostingu”.
+XGBoost:                  # Chen & Guestrin; publicznie od ~2014
   - xgboost
+  - xg-boost
+  - extreme gradient boosting
+
+# Ogólne metody boosting (Friedman 2001+) — osobna encja, bez ograniczenia roku jak XGBoost.
+gradient_boosting:
   - gradient boosting
-  - gbm
-  - lightgbm
-  - catboost
   - gradient boosted
+  - boosted gradient
+  - gbm
+
+lightgbm:                 # Microsoft; ~2016+
+  - lightgbm
+  - light gbm
+
+catboost:                 # Yandex; ~2017+
+  - catboost
+  - cat boost
 
 naive_bayes:              # Origins: 1950s-1960s
   - naive bayes

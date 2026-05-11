@@ -7,7 +7,24 @@ from pathlib import Path
 
 import pandas as pd
 
+from .entity_lists import ALL_BIOMARKER_COLUMNS, ALL_ML_METHOD_COLUMNS
+from .extract import ENTITY_YEAR_CONSTRAINTS
+
 logger = logging.getLogger(__name__)
+
+
+def _clip_anachronistic_ml_methods(df: pd.DataFrame, ml_columns: list[str]) -> None:
+    """Zeruje wiersze metod ML dla lat przed minimalnym rokiem (zabezpieczenie po agregacji)."""
+    if "year" not in df.columns:
+        return
+    y = pd.to_numeric(df["year"], errors="coerce")
+    for col in ml_columns:
+        min_y = ENTITY_YEAR_CONSTRAINTS.get(col)
+        if min_y is None or col not in df.columns:
+            continue
+        invalid = y.notna() & (y < min_y)
+        if invalid.any():
+            df.loc[invalid, col] = 0
 
 
 def aggregate_by_year(input_path: str) -> pd.DataFrame:
@@ -37,21 +54,18 @@ def aggregate_by_year(input_path: str) -> pd.DataFrame:
 
     df = pd.DataFrame(records)
 
-    all_biomarkers = [
-        "CRP", "troponin", "cholesterol", "HbA1c", "IL-6",
-        "glucose", "BNP", "ferritin", "albumin", "creatinine",
-    ]
-    all_ml_methods = [
-        "logistic_regression", "random_forest", "SVM", "neural_network",
-        "deep_learning", "transformer", "XGBoost", "naive_bayes",
-        "decision_tree", "clustering",
-    ]
+    all_biomarkers = list(ALL_BIOMARKER_COLUMNS)
+    all_ml_methods = list(ALL_ML_METHOD_COLUMNS)
 
     # Expand nested entity dicts into top-level columns for aggregation
     for col in all_biomarkers:
         df[col] = df["biomarkers_found"].apply(lambda d: d.get(col, 0))
     for col in all_ml_methods:
         df[col] = df["ml_methods_found"].apply(lambda d: d.get(col, 0))
+
+    _clip_anachronistic_ml_methods(df, all_ml_methods)
+    ml_cols = [c for c in all_ml_methods if c in df.columns]
+    df["has_ml"] = df[ml_cols].sum(axis=1) > 0
 
     # Per-year aggregation
     grouped = df.groupby("year")
