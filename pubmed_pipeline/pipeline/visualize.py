@@ -25,20 +25,80 @@ ML_MILESTONES = {
     2022: "ChatGPT",
 }
 
+# Grupy metod dla wykresów „dla laików” (suma wzmianek w grupie; jeden abstrakt może liczyć się w wielu).
+ML_FAMILY_GROUPS: dict[str, list[str]] = {
+    "classic_statistics": ["linear_regression", "cox_model", "logistic_regression"],
+    "traditional_ml": [
+        "random_forest",
+        "SVM",
+        "naive_bayes",
+        "decision_tree",
+        "clustering",
+    ],
+    "boosting": ["XGBoost", "gradient_boosting", "lightgbm", "catboost"],
+    "neural_deep": ["neural_network", "deep_learning"],
+    "transformers": ["transformer"],
+}
+
+ML_FAMILY_LABELS_PL: dict[str, str] = {
+    "classic_statistics": "Statystyka klasyczna (regresja, Cox, logit)",
+    "traditional_ml": "ML klasyczne (RF, SVM, drzewa…)",
+    "boosting": "Boosting (XGBoost, GBM, LightGBM…)",
+    "neural_deep": "Sieci i deep learning",
+    "transformers": "Transformery / LLM (słowa w tekście)",
+}
+
+
+def _smoothing_window_years(n_years: int) -> int:
+    """Okno wygładzenia zależne od długości szeregu — przy małej próbie mniejsze okno."""
+    if n_years <= 6:
+        return 3
+    if n_years <= 14:
+        return 5
+    return 7
+
+
+def _smooth_columns(df: pd.DataFrame, cols: list[str], window: int) -> pd.DataFrame:
+    out = df[cols].astype(float).fillna(0).copy()
+    w = max(1, min(window, len(out)))
+    if w <= 1:
+        return out
+    return out.rolling(window=w, center=True, min_periods=1).mean()
+
+
+def _family_sum_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """Roczne sumy wzmianek per grupa (kolumny = klucze ML_FAMILY_GROUPS)."""
+    rows = []
+    keys_order: list[str] = []
+    for key, members in ML_FAMILY_GROUPS.items():
+        present = [c for c in members if c in df.columns]
+        if not present:
+            continue
+        keys_order.append(key)
+        rows.append(df[present].astype(float).fillna(0).sum(axis=1))
+    if not rows:
+        return pd.DataFrame(), []
+    mat = pd.concat(rows, axis=1)
+    mat.columns = keys_order
+    return mat, keys_order
+
+
+def _corpus_caption(df: pd.DataFrame) -> str:
+    if "total_abstracts" not in df.columns:
+        return ""
+    mean_y = df["total_abstracts"].mean()
+    tot = df["total_abstracts"].sum()
+    return (
+        f"Korpus: średnio ~{mean_y:.0f} abstraktów/rok (łącznie {tot:.0f}). "
+        f"Mała próba roczna = większe wahania; wykresy używają wygładzenia, by pokazać trend."
+    )
+
 
 def generate_all_plots(df: pd.DataFrame, output_dir: str = "data/figures/") -> None:
-    """Generate and save all trend plots.
+    """Generate and save trend plots (PNG).
 
-    Produces five matplotlib figures:
-        1. ai_vs_biomarkers.png      — smoothed rate comparison
-        2. ai_penetration_index.png  — ML/biomarker rate ratio over time
-        3. ml_yoy_growth.png         — year-over-year ML growth bar chart
-        4. ml_method_breakdown.png   — stacked area of ML method counts
-        5. biomarker_breakdown.png  — stacked area of biomarker counts
-
-    Args:
-        df: Aggregated DataFrame (from aggregate_by_year + add_trend_features).
-        output_dir: Directory to save figures.
+    m.in. wykresy **uproszczone dla laików**: grupy metad (``04``, ``07``, ``08``)
+    z wygładzeniem kroczącym przy małej próbie rocznej; szczegóły per-metoda w ``04b``.
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -91,9 +151,25 @@ def generate_all_plots(df: pd.DataFrame, output_dir: str = "data/figures/") -> N
     ax.set_xlabel("Year")
     ax.set_ylabel("AI Penetration Index")
     ax.set_title("AI Penetration Index (ML rate / Biomarker rate)")
+    win_ix = _smoothing_window_years(len(df))
+    pen_smooth = df["ai_penetration_index"].rolling(
+        window=win_ix, center=True, min_periods=1
+    ).mean()
+    ax.plot(
+        df["year"],
+        pen_smooth,
+        color="#E91E63",
+        linewidth=2,
+        linestyle="--",
+        alpha=0.9,
+        label=f"Wygładzony trend ({win_ix}-letnie okno)",
+    )
     ax.legend()
     ax.grid(True, alpha=0.3)
-    plt.tight_layout()
+    cap = _corpus_caption(df)
+    if cap:
+        fig.text(0.5, 0.01, cap, ha="center", fontsize=8, color="dimgray")
+    plt.tight_layout(rect=(0, 0.06, 1, 1))
     fig.savefig(output_path / "02_ai_penetration_index.png")
     plt.close(fig)
     logger.info("Saved 02_ai_penetration_index.png")
@@ -110,21 +186,110 @@ def generate_all_plots(df: pd.DataFrame, output_dir: str = "data/figures/") -> N
     ax.axhline(y=0, color="black", linewidth=0.8)
     ax.set_xlabel("Year")
     ax.set_ylabel("ML Rate YoY Growth (%)")
-    ax.set_title("Year-over-Year Growth of ML Mentions")
+    ax.set_title("Year-over-Year Growth of ML Mentions (surowe — przy małej próbie bywa chaotyczne)")
     ax.grid(True, alpha=0.3, axis="y")
-    plt.tight_layout()
+    cap = _corpus_caption(df)
+    if cap:
+        fig.text(0.5, 0.01, cap, ha="center", fontsize=8, color="dimgray")
+    plt.tight_layout(rect=(0, 0.06, 1, 1))
     fig.savefig(output_path / "03_ml_yoy_growth.png")
     plt.close(fig)
     logger.info("Saved 03_ml_yoy_growth.png")
 
-    # ------------------------------------------------------------------
-    # Plot 4: ML method breakdown (stacked area)
-    # ------------------------------------------------------------------
-    ml_counts = df[all_ml].astype(float)
-    # Stack method counts: fill NaN with 0 for missing years/methods
-    ml_counts = ml_counts.fillna(0)
+    win = _smoothing_window_years(len(df))
+    fam_mat, fam_keys = _family_sum_matrix(df)
+    fam_smooth = _smooth_columns(fam_mat, list(fam_mat.columns), win) if not fam_mat.empty else fam_mat
 
-    fig, ax = plt.subplots(figsize=(12, 6), dpi=150)
+    # ------------------------------------------------------------------
+    # Plot 4: ML — 5 czytelnych grup (wygładzone; trend zamiast „szpilek”)
+    # ------------------------------------------------------------------
+    if not fam_smooth.empty:
+        fig, ax = plt.subplots(figsize=(13, 6.5), dpi=150)
+        palette_f = sns.color_palette("Set2", n_colors=len(fam_keys))
+        labels_pl = [ML_FAMILY_LABELS_PL.get(k, k) for k in fam_keys]
+        ax.stackplot(
+            df["year"],
+            [fam_smooth[k].values for k in fam_keys],
+            labels=labels_pl,
+            colors=palette_f,
+            alpha=0.88,
+        )
+        ax.set_xlabel("Rok")
+        ax.set_ylabel("Łączna liczba wzmianek w grupie (po wygładzeniu)")
+        ax.set_title(
+            f"Metody analityczne w czasie — pięć grup (średnia krocząca: {win} lat)\n"
+            "Jeden artykuł może zawierać wiele metod; to nie jest „% publikacji”."
+        )
+        ax.legend(loc="upper left", fontsize=9)
+        ax.grid(True, alpha=0.3)
+        cap = _corpus_caption(df)
+        if cap:
+            fig.text(0.5, 0.01, cap, ha="center", fontsize=8, color="dimgray")
+        plt.tight_layout(rect=(0, 0.07, 1, 1))
+        fig.savefig(output_path / "04_ml_method_breakdown.png")
+        plt.close(fig)
+        logger.info("Saved 04_ml_method_breakdown.png (family groups, smoothed)")
+
+        # ------------------------------------------------------------------
+        # Plot 7: te same grupy — linie (najłatwiejsze do czytania)
+        # ------------------------------------------------------------------
+        fig, ax = plt.subplots(figsize=(13, 6), dpi=150)
+        for i, key in enumerate(fam_keys):
+            ax.plot(
+                df["year"],
+                fam_smooth[key],
+                label=ML_FAMILY_LABELS_PL.get(key, key),
+                linewidth=2.6,
+                color=palette_f[i % len(palette_f)],
+            )
+        ax.set_xlabel("Rok")
+        ax.set_ylabel(f"Liczba wzmianek (średnia krocząca {win} lat)")
+        ax.set_title("Trendy metod — uproszczone grupy (dla osób spoza ML)")
+        ax.legend(loc="best", fontsize=9)
+        ax.grid(True, alpha=0.3)
+        if cap:
+            fig.text(0.5, 0.01, cap, ha="center", fontsize=8, color="dimgray")
+        plt.tight_layout(rect=(0, 0.06, 1, 1))
+        fig.savefig(output_path / "07_ml_families_easy_read.png")
+        plt.close(fig)
+        logger.info("Saved 07_ml_families_easy_read.png")
+
+        # ------------------------------------------------------------------
+        # Plot 8: skład % — jaką część wszystkich wzmianek o metodach stanowi każda grupa
+        # ------------------------------------------------------------------
+        row_tot = fam_smooth.sum(axis=1).replace(0, float("nan"))
+        fam_pct = fam_smooth.div(row_tot, axis=0) * 100.0
+        fam_pct = fam_pct.fillna(0.0)
+        fig, ax = plt.subplots(figsize=(13, 6.5), dpi=150)
+        ax.stackplot(
+            df["year"],
+            [fam_pct[k].values for k in fam_keys],
+            labels=labels_pl,
+            colors=palette_f,
+            alpha=0.88,
+        )
+        ax.set_xlabel("Rok")
+        ax.set_ylabel("Udział wzmianek między grupami (%)")
+        ax.set_title(
+            "Zmiana „miksu” metod w czasie (%) — suma warstw = 100% w każdym roku\n"
+            "Pokazuje np. wzrost deep learningu / boosting względem statystyki klasycznej, "
+            "nawet gdy mała próba rozmywa skalę bezwzględną."
+        )
+        ax.legend(loc="upper left", fontsize=9)
+        ax.set_ylim(0, 100)
+        ax.grid(True, alpha=0.3)
+        if cap:
+            fig.text(0.5, 0.01, cap, ha="center", fontsize=8, color="dimgray")
+        plt.tight_layout(rect=(0, 0.08, 1, 1))
+        fig.savefig(output_path / "08_ml_family_mix_percent.png")
+        plt.close(fig)
+        logger.info("Saved 08_ml_family_mix_percent.png")
+
+    # ------------------------------------------------------------------
+    # Plot 4b: szczegółowy stos (wszystkie metody), też wygładzony — dla ekspertów
+    # ------------------------------------------------------------------
+    ml_counts = _smooth_columns(df, all_ml, win)
+    fig, ax = plt.subplots(figsize=(13, 6.5), dpi=150)
     palette = sns.color_palette("tab10", n_colors=len(all_ml))
     ax.stackplot(
         df["year"],
@@ -134,21 +299,24 @@ def generate_all_plots(df: pd.DataFrame, output_dir: str = "data/figures/") -> N
         alpha=0.8,
     )
     ax.set_xlabel("Year")
-    ax.set_ylabel("Mention Count")
-    ax.set_title("ML Method Breakdown Over Time")
-    ax.legend(loc="upper left", fontsize=8)
+    ax.set_ylabel("Mention count (smoothed)")
+    ax.set_title(f"Wszystkie metody (wygładzenie {win} lat) — mniej szumu niż surowe liczby")
+    ax.legend(loc="upper left", fontsize=7)
     ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    fig.savefig(output_path / "04_ml_method_breakdown.png")
+    cap = _corpus_caption(df)
+    if cap:
+        fig.text(0.5, 0.01, cap, ha="center", fontsize=8, color="dimgray")
+    plt.tight_layout(rect=(0, 0.06, 1, 1))
+    fig.savefig(output_path / "04b_ml_methods_detail_smoothed.png")
     plt.close(fig)
-    logger.info("Saved 04_ml_method_breakdown.png")
+    logger.info("Saved 04b_ml_methods_detail_smoothed.png")
 
     # ------------------------------------------------------------------
     # Plot 5: Biomarker breakdown (stacked area)
     # ------------------------------------------------------------------
-    bio_counts = df[all_biomarkers].fillna(0)
+    bio_counts = _smooth_columns(df, all_biomarkers, win)
 
-    fig, ax = plt.subplots(figsize=(12, 6), dpi=150)
+    fig, ax = plt.subplots(figsize=(13, 6.5), dpi=150)
     palette = sns.color_palette("Set2", n_colors=len(all_biomarkers))
     ax.stackplot(
         df["year"],
@@ -158,11 +326,14 @@ def generate_all_plots(df: pd.DataFrame, output_dir: str = "data/figures/") -> N
         alpha=0.8,
     )
     ax.set_xlabel("Year")
-    ax.set_ylabel("Mention Count")
-    ax.set_title("Biomarker Breakdown Over Time")
+    ax.set_ylabel("Mention count (smoothed)")
+    ax.set_title(f"Biomarkery w czasie (średnia krocząca {win} lat)")
     ax.legend(loc="upper left", fontsize=8)
     ax.grid(True, alpha=0.3)
-    plt.tight_layout()
+    cap = _corpus_caption(df)
+    if cap:
+        fig.text(0.5, 0.01, cap, ha="center", fontsize=8, color="dimgray")
+    plt.tight_layout(rect=(0, 0.06, 1, 1))
     fig.savefig(output_path / "05_biomarker_breakdown.png")
     plt.close(fig)
     logger.info("Saved 05_biomarker_breakdown.png")
@@ -227,6 +398,18 @@ def generate_interactive_plots(df: pd.DataFrame, output_dir: str) -> None:
             name="AI penetration index",
         )
     )
+    win_i = _smoothing_window_years(len(df))
+    fig2.add_trace(
+        go.Scatter(
+            x=df["year"],
+            y=df["ai_penetration_index"]
+            .rolling(window=win_i, center=True, min_periods=1)
+            .mean(),
+            mode="lines",
+            line=dict(color="#E91E63", width=2, dash="dash"),
+            name=f"Trend wygładzony ({win_i} lat)",
+        )
+    )
     fig2.add_hline(y=1.0, line_dash="dash", line_color="gray", annotation_text="Parity")
     fig2.update_layout(
         title="AI penetration index (ML rate / biomarker rate)",
@@ -254,29 +437,101 @@ def generate_interactive_plots(df: pd.DataFrame, output_dir: str) -> None:
     )
     fig3.write_html(out / "interactive_03_ml_yoy_growth.html", include_plotlyjs="cdn")
 
-    ml_counts = df[all_ml].astype(float).fillna(0)
+    win = _smoothing_window_years(len(df))
+    fam_mat_i, fam_keys_i = _family_sum_matrix(df)
+    fam_s_i = (
+        _smooth_columns(fam_mat_i, list(fam_mat_i.columns), win)
+        if not fam_mat_i.empty
+        else fam_mat_i
+    )
     fig4 = go.Figure()
+    if not fam_s_i.empty:
+        labels_pl = [ML_FAMILY_LABELS_PL.get(k, k) for k in fam_keys_i]
+        for col, lab in zip(fam_keys_i, labels_pl):
+            fig4.add_trace(
+                go.Scatter(
+                    x=df["year"],
+                    y=fam_s_i[col],
+                    name=lab,
+                    stackgroup="one",
+                    mode="lines",
+                    line=dict(width=0.5),
+                )
+            )
+        fig4.update_layout(
+            title=f"Metody — 5 grup (wygładzenie {win} lat), interaktywnie",
+            xaxis_title="Rok",
+            yaxis_title="Wzmianek w grupie (wygładzone)",
+            template="plotly_white",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+    fig4.write_html(out / "interactive_04_ml_method_breakdown.html", include_plotlyjs="cdn")
+
+    if not fam_s_i.empty:
+        fig7 = go.Figure()
+        for k in fam_keys_i:
+            fig7.add_trace(
+                go.Scatter(
+                    x=df["year"],
+                    y=fam_s_i[k],
+                    name=ML_FAMILY_LABELS_PL.get(k, k),
+                    mode="lines",
+                )
+            )
+        fig7.update_layout(
+            title="Trendy — pięć grup metod (wygładzone)",
+            xaxis_title="Rok",
+            yaxis_title="Liczba wzmianek",
+            template="plotly_white",
+        )
+        fig7.write_html(out / "interactive_07_ml_families.html", include_plotlyjs="cdn")
+
+        row_tot = fam_s_i.sum(axis=1).replace(0, float("nan"))
+        fam_pct_i = fam_s_i.div(row_tot, axis=0) * 100.0
+        fam_pct_i = fam_pct_i.fillna(0.0)
+        fig8 = go.Figure()
+        for col, lab in zip(fam_keys_i, labels_pl):
+            fig8.add_trace(
+                go.Scatter(
+                    x=df["year"],
+                    y=fam_pct_i[col],
+                    name=lab,
+                    stackgroup="pct",
+                    mode="lines",
+                    line=dict(width=0.5),
+                )
+            )
+        fig8.update_layout(
+            title="Udział grup w „miksie” wzmianek (%) — 100% na rok",
+            xaxis_title="Rok",
+            yaxis_title="Procent",
+            template="plotly_white",
+        )
+        fig8.write_html(out / "interactive_08_ml_mix_percent.html", include_plotlyjs="cdn")
+
+    ml_counts = _smooth_columns(df, all_ml, win)
+    fig4b = go.Figure()
     for col in all_ml:
-        fig4.add_trace(
+        fig4b.add_trace(
             go.Scatter(
                 x=df["year"],
                 y=ml_counts[col],
                 name=col,
-                stackgroup="one",
+                stackgroup="detail",
                 mode="lines",
                 line=dict(width=0.5),
             )
         )
-    fig4.update_layout(
-        title="ML & statistical methods — stacked mentions over time",
+    fig4b.update_layout(
+        title=f"Wszystkie metody (wygładzenie {win} lat)",
         xaxis_title="Year",
         yaxis_title="Count",
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
-    fig4.write_html(out / "interactive_04_ml_method_breakdown.html", include_plotlyjs="cdn")
+    fig4b.write_html(out / "interactive_04b_ml_detail_smoothed.html", include_plotlyjs="cdn")
 
-    bio_counts = df[all_bio].astype(float).fillna(0)
+    bio_counts = _smooth_columns(df, all_bio, win)
     fig5 = go.Figure()
     for col in all_bio:
         fig5.add_trace(
